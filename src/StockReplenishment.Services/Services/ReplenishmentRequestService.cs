@@ -75,9 +75,12 @@ internal sealed class ReplenishmentRequestService : IReplenishmentRequestService
     public async Task<ReplenishmentRequestDto> UpdateDraftAsync(Guid id, UpdateRequestDto input, CancellationToken cancellationToken)
     {
         RequireRole(UserRole.Worker);
+        
         await EnsureArticlesExistAsync(input.Items, cancellationToken);
 
         var request = await LoadForUpdateAsync(id, cancellationToken);
+        RequireOwnership(request);
+        
         EnsureStatus(request, RequestStatus.Draft, "update");
 
         request.Priority = input.Priority;
@@ -102,6 +105,7 @@ internal sealed class ReplenishmentRequestService : IReplenishmentRequestService
         RequireRole(UserRole.Worker);
 
         var request = await LoadForUpdateAsync(id, cancellationToken);
+        RequireOwnership(request);
         EnsureStatus(request, RequestStatus.Draft, "submit");
         if (request.Items.Count == 0)
             throw new BusinessException("Cannot submit a request with no items.", HttpStatusCode.UnprocessableEntity);
@@ -212,6 +216,17 @@ internal sealed class ReplenishmentRequestService : IReplenishmentRequestService
             throw new BusinessException("A user identity is required for this operation.", HttpStatusCode.Forbidden);
         if (_currentUser.Role != expected)
             throw new BusinessException($"This operation requires role '{expected}'.", HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>
+    /// Worker write-actions (update, submit) must only target the worker's own drafts. Role-based
+    /// authorisation alone is not enough — without this, any Worker who learns another worker's
+    /// request id could submit or modify their draft.
+    /// </summary>
+    private void RequireOwnership(ReplenishmentRequest request)
+    {
+        if (!string.Equals(request.CreatedBy, _currentUser.UserName, StringComparison.Ordinal))
+            throw new BusinessException("This request belongs to another user.", HttpStatusCode.Forbidden);
     }
 
     private async Task EnsureLocationExistsAsync(Guid locationId, CancellationToken cancellationToken)

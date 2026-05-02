@@ -144,6 +144,79 @@ public class ReplenishmentRequestServiceTests
         Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
     }
 
+    /// <summary>
+    /// Approving a request that has already left the Submitted state must be rejected — guards
+    /// against re-running side-effects (notifications, audit, fulfilment) when a stale UI button
+    /// is clicked or two reviewers act on the same request concurrently.
+    /// </summary>
+    [TestCase(RequestStatus.Approved)]
+    [TestCase(RequestStatus.Rejected)]
+    [TestCase(RequestStatus.Fulfilled)]
+    public async Task Approve_OnTerminalRequest_ReturnsConflict(RequestStatus terminalStatus)
+    {
+        _user.Role = UserRole.Worker;
+        var draft = await CreateDraftAsync();
+        await _service.SubmitAsync(draft.Id, CancellationToken.None);
+
+        _user.Role = UserRole.Reviewer;
+        await DriveToTerminalAsync(draft.Id, terminalStatus);
+
+        var ex = Assert.ThrowsAsync<BusinessException>(() => _service.ApproveAsync(draft.Id, CancellationToken.None));
+        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    /// <summary>
+    /// Two fulfilment entries for the same line item must fail-fast rather than silently overwriting
+    /// each other in the dictionary; this protects the auditability of the fulfilled quantity.
+    /// </summary>
+    [Test]
+    public async Task Fulfill_WithDuplicateItemId_ReturnsBadRequest()
+    {
+        _user.Role = UserRole.Worker;
+        var draft = await CreateDraftWithTwoItemsAsync();
+        await _service.SubmitAsync(draft.Id, CancellationToken.None);
+
+        _user.Role = UserRole.Reviewer;
+        var approved = await _service.ApproveAsync(draft.Id, CancellationToken.None);
+
+        var firstItemId = approved.Items[0].Id;
+        var fulfillment = new FulfillRequestDto
+        {
+            Items =
+            [
+                new FulfillItemDto { ItemId = firstItemId, FulfilledQuantity = 1 },
+                new FulfillItemDto { ItemId = firstItemId, FulfilledQuantity = 2 }
+            ]
+        };
+
+        var ex = Assert.ThrowsAsync<BusinessException>(() => _service.FulfillAsync(draft.Id, fulfillment, CancellationToken.None));
+        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    /// <summary>
+    /// Every line on the request must have an explicit fulfilled quantity. Omitting one surfaces
+    /// as 400 so the caller can fix the payload, instead of silently leaving the line un-fulfilled.
+    /// </summary>
+    [Test]
+    public async Task Fulfill_WithMissingItemForLine_ReturnsBadRequest()
+    {
+        _user.Role = UserRole.Worker;
+        var draft = await CreateDraftWithTwoItemsAsync();
+        await _service.SubmitAsync(draft.Id, CancellationToken.None);
+
+        _user.Role = UserRole.Reviewer;
+        var approved = await _service.ApproveAsync(draft.Id, CancellationToken.None);
+
+        // Second item intentionally omitted from the payload.
+        var fulfillment = new FulfillRequestDto
+        {
+            Items = [new FulfillItemDto { ItemId = approved.Items[0].Id, FulfilledQuantity = 1 }]
+        };
+
+        var ex = Assert.ThrowsAsync<BusinessException>(() => _service.FulfillAsync(draft.Id, fulfillment, CancellationToken.None));
+        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
     // ------------------------- authorization -----------------------------------------------------
 
     [Test]
@@ -156,6 +229,52 @@ public class ReplenishmentRequestServiceTests
             Priority = RequestPriority.Normal,
             Items = []
         }, CancellationToken.None));
+        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    /// <summary>
+    /// A worker must not be able to act on another worker's draft. Role alone is insufficient —
+    /// ownership must be enforced on write operations (read-side row-level security alone leaves
+    /// a worker free to submit/update someone else's request when they know the id).
+    /// </summary>
+    [Test]
+    public async Task Submit_OnAnotherWorkersDraft_IsForbidden()
+    {
+        _user.Role = UserRole.Worker;
+
+        _user.UserName = "ali";
+        var aliDraft = await CreateDraftAsync();
+
+        _user.UserName = "ayse";
+
+        var ex = Assert.ThrowsAsync<BusinessException>(() => _service.SubmitAsync(aliDraft.Id, CancellationToken.None));
+        Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    /// <summary>
+    /// Review-only actions (approve / reject / fulfill) must be blocked for the Worker role —
+    /// the inverse direction of <see cref="CreateDraft_AsReviewer_ReturnsForbidden"/>. Parameterised
+    /// because <c>RequireRole</c> runs before any state check, so the same Submitted fixture
+    /// covers all three actions.
+    /// </summary>
+    [TestCase("approve")]
+    [TestCase("reject")]
+    [TestCase("fulfill")]
+    public async Task ReviewActions_AsWorker_ReturnForbidden(string action)
+    {
+        _user.Role = UserRole.Worker;
+        var draft = await CreateDraftAsync();
+        await _service.SubmitAsync(draft.Id, CancellationToken.None);
+
+        Func<Task> act = action switch
+        {
+            "approve" => () => _service.ApproveAsync(draft.Id, CancellationToken.None),
+            "reject"  => () => _service.RejectAsync(draft.Id, new RejectRequestDto { Reason = "x" }, CancellationToken.None),
+            "fulfill" => () => _service.FulfillAsync(draft.Id, new FulfillRequestDto { Items = [] }, CancellationToken.None),
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, null)
+        };
+
+        var ex = Assert.ThrowsAsync<BusinessException>(() => act());
         Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
@@ -250,4 +369,43 @@ public class ReplenishmentRequestServiceTests
             Priority = RequestPriority.Normal,
             Items = [new RequestItemInputDto { ArticleId = TestDb.Article1Id, RequestedQuantity = 3 }]
         }, CancellationToken.None);
+
+    /// <summary>Two-item draft used by fulfilment tests that need duplicate / missing item id coverage.</summary>
+    private async Task<ReplenishmentRequestDto> CreateDraftWithTwoItemsAsync() =>
+        await _service.CreateDraftAsync(new CreateRequestDto
+        {
+            StockLocationId = TestDb.LocationId,
+            Priority = RequestPriority.Normal,
+            Items =
+            [
+                new RequestItemInputDto { ArticleId = TestDb.Article1Id, RequestedQuantity = 3 },
+                new RequestItemInputDto { ArticleId = TestDb.Article2Id, RequestedQuantity = 5 }
+            ]
+        }, CancellationToken.None);
+
+    /// <summary>Drives a Submitted request to the requested terminal status using the public service API.</summary>
+    private async Task DriveToTerminalAsync(Guid requestId, RequestStatus terminal)
+    {
+        switch (terminal)
+        {
+            case RequestStatus.Approved:
+                await _service.ApproveAsync(requestId, CancellationToken.None);
+                break;
+            case RequestStatus.Rejected:
+                await _service.RejectAsync(requestId, new RejectRequestDto { Reason = "test reason" }, CancellationToken.None);
+                break;
+            case RequestStatus.Fulfilled:
+                var approved = await _service.ApproveAsync(requestId, CancellationToken.None);
+                var dto = new FulfillRequestDto
+                {
+                    Items = approved.Items
+                        .Select(i => new FulfillItemDto { ItemId = i.Id, FulfilledQuantity = i.RequestedQuantity })
+                        .ToList()
+                };
+                await _service.FulfillAsync(requestId, dto, CancellationToken.None);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(terminal), terminal, "Not a terminal status.");
+        }
+    }
 }
