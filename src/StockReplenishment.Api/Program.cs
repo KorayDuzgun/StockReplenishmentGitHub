@@ -1,6 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using StockReplenishment.Api.Identity;
-using StockReplenishment.Api.Middleware;
 using StockReplenishment.Data.Persistence;
 using StockReplenishment.Services;
 using StockReplenishment.Services.Abstractions;
@@ -17,7 +15,6 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, HeaderCurrentUser>();
 
 builder.Services.AddStockReplenishment();
 
@@ -35,8 +32,6 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Domain exception translator must come before MVC so it can catch service-thrown exceptions.
-app.UseMiddleware<DomainExceptionMiddleware>();
 app.UseCors();
 app.MapControllers();
 
