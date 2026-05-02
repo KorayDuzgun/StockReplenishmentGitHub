@@ -2,15 +2,6 @@
 
 Production-line workers raise material replenishment requests; reviewers approve, reject and fulfil them. Submitted requests trigger a slow external availability check that runs asynchronously without blocking the API.
 
-## Stack
-
-| Layer | Tech |
-|---|---|
-| API | ASP.NET Core (.NET 10), controllers, OpenAPI |
-| Persistence | EF Core (InMemory provider) |
-| Web | Blazor Server + MudBlazor |
-| Tests | NUnit + NSubstitute |
-
 ## Solution Layout
 
 ```
