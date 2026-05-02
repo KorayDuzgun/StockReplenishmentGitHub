@@ -1,0 +1,40 @@
+@* Modal dialog used by the detail page to capture a mandatory rejection reason. *@
+
+<MudDialog>
+    <TitleContent>
+        Reject @RequestNumber
+    </TitleContent>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="_reason"
+                      Label="Rejection reason" Required Lines="3"
+                      Variant="Variant.Outlined" />
+        @if (_error is not null)
+        {
+            <MudText Color="Color.Error" Class="mt-2">@_error</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Confirm">Reject</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string RequestNumber { get; set; } = string.Empty;
+
+    private string _reason = string.Empty;
+    private string? _error;
+
+    private void Confirm()
+    {
+        if (string.IsNullOrWhiteSpace(_reason))
+        {
+            _error = "Reason is required.";
+            return;
+        }
+        MudDialog.Close(DialogResult.Ok(_reason.Trim()));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

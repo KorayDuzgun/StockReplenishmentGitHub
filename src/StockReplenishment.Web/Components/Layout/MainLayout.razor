@@ -1,0 +1,52 @@
+@inherits LayoutComponentBase
+@inject UserContext UserContext
+@implements IDisposable
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary">
+        <MudText Typo="Typo.h6">Stock Replenishment</MudText>
+        <MudSpacer />
+        <MudNavLink Href="/" Match="NavLinkMatch.All" Style="color:white;">Requests</MudNavLink>
+        @if (UserContext.Current.Role == UserRole.Worker)
+        {
+            <MudNavLink Href="/requests/new" Match="NavLinkMatch.Prefix" Style="color:white;">New Request</MudNavLink>
+        }
+        <MudSpacer />
+        <MudSelect T="WebUser"
+                   Value="UserContext.Current"
+                   ValueChanged="OnUserChanged"
+                   Dense
+                   Variant="Variant.Outlined"
+                   Style="min-width:220px; background:white; border-radius:4px;">
+            @foreach (var user in WebUsers.All)
+            {
+                <MudSelectItem Value="@user">@user.DisplayName</MudSelectItem>
+            }
+        </MudSelect>
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="pa-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">??</span>
+</div>
+
+@code {
+    protected override void OnInitialized() => UserContext.Changed += StateHasChanged;
+
+    public void Dispose() => UserContext.Changed -= StateHasChanged;
+
+    private void OnUserChanged(WebUser user) => UserContext.SetUser(user);
+}

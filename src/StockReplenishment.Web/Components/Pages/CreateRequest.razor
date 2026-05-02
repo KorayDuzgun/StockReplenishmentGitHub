@@ -1,0 +1,146 @@
+@page "/requests/new"
+@inject ApiClient Api
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject UserContext UserContext
+
+<PageTitle>New Request</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">New Replenishment Request</MudText>
+
+@if (UserContext.Current.Role != UserRole.Worker)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
+        Only the <b>Worker</b> role can create requests. Switch user from the top bar.
+    </MudAlert>
+}
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+}
+
+<MudPaper Class="pa-4" Elevation="0" Outlined>
+    <MudGrid Spacing="3">
+        <MudItem xs="12" sm="6">
+            <MudSelect T="Guid" @bind-Value="_locationId" Label="Stock Location" Required Variant="Variant.Outlined">
+                @foreach (var location in _locations)
+                {
+                    <MudSelectItem T="Guid" Value="@location.Id">@location.Code — @location.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudSelect T="RequestPriority" @bind-Value="_priority" Label="Priority" Variant="Variant.Outlined">
+                @foreach (var priority in Enum.GetValues<RequestPriority>())
+                {
+                    <MudSelectItem T="RequestPriority" Value="@priority">@priority</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudText Typo="Typo.h6" Class="mb-2">Items</MudText>
+
+            <MudTable T="RequestItemInputDto" Items="_items" Dense Hover>
+                <HeaderContent>
+                    <MudTh>Article</MudTh>
+                    <MudTh Style="width:140px">Quantity</MudTh>
+                    <MudTh Style="width:60px"></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudSelect T="Guid" Value="@context.ArticleId" ValueChanged="@(v => context.ArticleId = v)" Dense Variant="Variant.Outlined" Margin="Margin.Dense">
+                            @foreach (var article in _articles)
+                            {
+                                <MudSelectItem T="Guid" Value="@article.Id">@article.ArticleNumber — @article.Description (@article.Unit)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudTd>
+                    <MudTd>
+                        <MudNumericField T="int" Value="@context.RequestedQuantity" ValueChanged="@(v => context.RequestedQuantity = v)" Min="1" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveItem(context))" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem" Class="mt-2">Add Item</MudButton>
+        </MudItem>
+
+        <MudItem xs="12" Class="d-flex justify-end">
+            <MudButton Variant="Variant.Outlined" OnClick="@(() => Nav.NavigateTo("/"))" Class="mr-2">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="SaveAsync"
+                       Disabled="@(_saving || UserContext.Current.Role != UserRole.Worker)">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate Class="mr-2" />
+                }
+                Create Draft
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    private IReadOnlyList<StockLocationDto> _locations = [];
+    private IReadOnlyList<ArticleDto> _articles = [];
+    private Guid _locationId;
+    private RequestPriority _priority = RequestPriority.Normal;
+    private List<RequestItemInputDto> _items = [];
+
+    private bool _saving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _locations = await Api.ListLocationsAsync();
+            _articles = await Api.ListArticlesAsync();
+            if (_locations.Count > 0) _locationId = _locations[0].Id;
+            if (_articles.Count > 0) _items.Add(new RequestItemInputDto { ArticleId = _articles[0].Id, RequestedQuantity = 1 });
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private void AddItem()
+    {
+        _items.Add(new RequestItemInputDto
+        {
+            ArticleId = _articles.FirstOrDefault()?.Id ?? Guid.Empty,
+            RequestedQuantity = 1
+        });
+    }
+
+    private void RemoveItem(RequestItemInputDto item) => _items.Remove(item);
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var dto = new CreateRequestDto
+            {
+                StockLocationId = _locationId,
+                Priority = _priority,
+                Items = _items
+            };
+            var created = await Api.CreateRequestAsync(dto);
+            Snackbar.Add($"Draft {created.RequestNumber} created.", Severity.Success);
+            Nav.NavigateTo($"/requests/{created.Id}");
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

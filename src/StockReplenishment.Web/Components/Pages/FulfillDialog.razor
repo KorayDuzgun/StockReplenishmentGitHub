@@ -1,0 +1,62 @@
+@* Modal dialog used by the detail page to capture per-item fulfilled quantities. *@
+
+<MudDialog>
+    <TitleContent>Fulfill Request</TitleContent>
+    <DialogContent>
+        <MudTable T="ReplenishmentRequestItemDto" Items="Items" Dense Hover>
+            <HeaderContent>
+                <MudTh>Article</MudTh>
+                <MudTh Style="text-align:right">Requested</MudTh>
+                <MudTh Style="text-align:right">Available</MudTh>
+                <MudTh Style="width:140px">Fulfilled</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.ArticleNumber — @context.Description</MudTd>
+                <MudTd Style="text-align:right">@context.RequestedQuantity</MudTd>
+                <MudTd Style="text-align:right">@(context.AvailableQuantity?.ToString() ?? "—")</MudTd>
+                <MudTd>
+                    <MudNumericField T="int" Value="GetQuantity(context.Id)"
+                                     ValueChanged="@(v => SetQuantity(context.Id, v))"
+                                     Min="0" Max="@context.RequestedQuantity"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Tertiary" Variant="Variant.Filled" OnClick="Confirm">Confirm</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public List<ReplenishmentRequestItemDto> Items { get; set; } = new();
+
+    private readonly Dictionary<Guid, int> _quantities = new();
+
+    protected override void OnParametersSet()
+    {
+        // Default each fulfilled qty to the available quantity (or requested when availability is unknown).
+        foreach (var item in Items)
+            _quantities[item.Id] = item.AvailableQuantity ?? item.RequestedQuantity;
+    }
+
+    private int GetQuantity(Guid itemId) => _quantities.TryGetValue(itemId, out var q) ? q : 0;
+    private void SetQuantity(Guid itemId, int value) => _quantities[itemId] = value;
+
+    private void Confirm()
+    {
+        var dto = new FulfillRequestDto
+        {
+            Items = Items.Select(i => new FulfillItemDto
+            {
+                ItemId = i.Id,
+                FulfilledQuantity = GetQuantity(i.Id)
+            }).ToList()
+        };
+        MudDialog.Close(DialogResult.Ok(dto));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

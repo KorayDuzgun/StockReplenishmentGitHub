@@ -59,11 +59,11 @@ public static class DatabaseSeeder
         var list = new List<ReplenishmentRequest>();
 
         // Draft (still being prepared by a worker)
-        list.Add(Build(locations[0], RequestPriority.Normal, "ali", now.AddMinutes(-30),
+        list.Add(Build(locations[0], RequestPriority.Normal, "john", now.AddMinutes(-30),
             (articles[0], 50), (articles[2], 50)));
 
         // Submitted, availability check still in progress (great for demoing polling)
-        var submittedInProgress = Build(locations[1], RequestPriority.Urgent, "ayse", now.AddMinutes(-20),
+        var submittedInProgress = Build(locations[1], RequestPriority.Urgent, "anna", now.AddMinutes(-20),
             (articles[1], 30), (articles[3], 30), (articles[4], 60));
         submittedInProgress.Status = RequestStatus.Submitted;
         submittedInProgress.SubmittedAt = now.AddMinutes(-19);
@@ -71,7 +71,7 @@ public static class DatabaseSeeder
         list.Add(submittedInProgress);
 
         // Submitted, availability completed (reviewer can act)
-        var submittedReady = Build(locations[2], RequestPriority.Normal, "ali", now.AddMinutes(-60),
+        var submittedReady = Build(locations[2], RequestPriority.Normal, "john", now.AddMinutes(-60),
             (articles[5], 10), (articles[6], 25));
         submittedReady.Status = RequestStatus.Submitted;
         submittedReady.SubmittedAt = now.AddMinutes(-59);
@@ -80,36 +80,36 @@ public static class DatabaseSeeder
         list.Add(submittedReady);
 
         // Approved, awaiting fulfillment
-        var approved = Build(locations[3], RequestPriority.Low, "ayse", now.AddHours(-3),
+        var approved = Build(locations[3], RequestPriority.Low, "anna", now.AddHours(-3),
             (articles[9], 200), (articles[11], 5));
         approved.Status = RequestStatus.Approved;
         approved.SubmittedAt = now.AddHours(-3).AddMinutes(1);
         approved.ApprovedAt = now.AddHours(-2);
-        approved.ReviewedBy = "mehmet";
+        approved.ReviewedBy = "jason";
         approved.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
         foreach (var i in approved.Items) i.AvailableQuantity = i.RequestedQuantity;
         list.Add(approved);
 
         // Rejected (with reason)
-        var rejected = Build(locations[0], RequestPriority.Urgent, "ali", now.AddHours(-5),
+        var rejected = Build(locations[0], RequestPriority.Urgent, "john", now.AddHours(-5),
             (articles[8], 1));
         rejected.Status = RequestStatus.Rejected;
         rejected.SubmittedAt = now.AddHours(-5).AddMinutes(1);
         rejected.RejectedAt = now.AddHours(-4);
-        rejected.ReviewedBy = "mehmet";
+        rejected.ReviewedBy = "jason";
         rejected.RejectionReason = "Insufficient justification for urgent priority.";
         rejected.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
         foreach (var i in rejected.Items) i.AvailableQuantity = i.RequestedQuantity;
         list.Add(rejected);
 
         // Fulfilled (closed)
-        var fulfilled = Build(locations[4], RequestPriority.Normal, "ayse", now.AddDays(-1),
+        var fulfilled = Build(locations[4], RequestPriority.Normal, "anna", now.AddDays(-1),
             (articles[7], 100));
         fulfilled.Status = RequestStatus.Fulfilled;
         fulfilled.SubmittedAt = now.AddDays(-1).AddMinutes(1);
         fulfilled.ApprovedAt = now.AddDays(-1).AddHours(1);
         fulfilled.FulfilledAt = now.AddDays(-1).AddHours(2);
-        fulfilled.ReviewedBy = "mehmet";
+        fulfilled.ReviewedBy = "jason";
         fulfilled.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
         foreach (var i in fulfilled.Items)
         {
@@ -119,10 +119,10 @@ public static class DatabaseSeeder
         list.Add(fulfilled);
 
         // Extra rows so the list view has visible variety
-        list.Add(Build(locations[1], RequestPriority.Low, "ali", now.AddMinutes(-10),
+        list.Add(Build(locations[1], RequestPriority.Low, "john", now.AddMinutes(-10),
             (articles[10], 4)));
 
-        var secondSubmitted = Build(locations[2], RequestPriority.Urgent, "ayse", now.AddMinutes(-90),
+        var secondSubmitted = Build(locations[2], RequestPriority.Urgent, "anna", now.AddMinutes(-90),
             (articles[0], 25), (articles[2], 25));
         secondSubmitted.Status = RequestStatus.Submitted;
         secondSubmitted.SubmittedAt = now.AddMinutes(-89);

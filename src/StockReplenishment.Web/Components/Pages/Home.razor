@@ -1,0 +1,203 @@
+@page "/"
+@inject ApiClient Api
+@inject NavigationManager Nav
+@inject UserContext UserContext
+@implements IDisposable
+
+<PageTitle>Replenishment Requests</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Replenishment Requests</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined>
+    <MudGrid Spacing="3">
+        <MudItem xs="12" sm="3">
+            <MudSelect T="RequestStatus?" Value="_statusFilter" ValueChanged="OnFilterChanged" Label="Status" Clearable Dense Variant="Variant.Outlined">
+                @foreach (var status in Enum.GetValues<RequestStatus>())
+                {
+                    <MudSelectItem T="RequestStatus?" Value="@status">@status</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudSelect T="RequestPriority?" Value="_priorityFilter" ValueChanged="OnPriorityChanged" Label="Priority" Clearable Dense Variant="Variant.Outlined">
+                @foreach (var priority in Enum.GetValues<RequestPriority>())
+                {
+                    <MudSelectItem T="RequestPriority?" Value="@priority">@priority</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudSelect T="Guid?" Value="_locationFilter" ValueChanged="OnLocationChanged" Label="Location" Clearable Dense Variant="Variant.Outlined">
+                @foreach (var location in _locations)
+                {
+                    <MudSelectItem T="Guid?" Value="@location.Id">@location.Code � @location.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3" Class="d-flex justify-end">
+            @if (UserContext.Current.Role == UserRole.Worker)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="/requests/new">New Request</MudButton>
+            }
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else
+{
+    <MudTable T="RequestListItemDto"
+              Items="@_page?.Items"
+              Hover
+              Dense
+              Striped
+              OnRowClick="OnRowClicked"
+              Class="cursor-pointer">
+        <HeaderContent>
+            <MudTh>Request #</MudTh>
+            <MudTh>Location</MudTh>
+            <MudTh>Priority</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Availability</MudTh>
+            <MudTh>Items</MudTh>
+            <MudTh>Created By</MudTh>
+            <MudTh>Created At</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.RequestNumber</MudTd>
+            <MudTd>@context.StockLocationCode</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="@PriorityColor(context.Priority)">@context.Priority</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="@AvailabilityColor(context.AvailabilityCheckStatus)">@context.AvailabilityCheckStatus</MudChip>
+            </MudTd>
+            <MudTd>@context.ItemCount</MudTd>
+            <MudTd>@context.CreatedBy</MudTd>
+            <MudTd>@context.CreatedAt.LocalDateTime.ToString("g")</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    @if (_page is not null)
+    {
+        <MudPagination Class="mt-4" Color="Color.Primary"
+                       Count="@Math.Max(1, _page.TotalPages)"
+                       Selected="_page.Page"
+                       SelectedChanged="OnPageChanged" />
+    }
+}
+
+@code {
+    private PagedResult<RequestListItemDto>? _page;
+    private IReadOnlyList<StockLocationDto> _locations = [];
+    private RequestStatus? _statusFilter;
+    private RequestPriority? _priorityFilter;
+    private Guid? _locationFilter;
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserContext.Changed += OnUserChanged;
+        try { _locations = await Api.ListLocationsAsync(); }
+        catch (ApiException ex) { _error = ex.Message; }
+
+        await ReloadAsync();
+    }
+
+    private async void OnUserChanged()
+    {
+        // Switching identity also changes which rows the API returns (workers are scoped to their
+        // own requests). Reset to page 1 so we never end up on a now-empty page.
+        _currentPage = 1;
+        await InvokeAsync(ReloadAsync);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            _page = await Api.ListRequestsAsync(_statusFilter, _priorityFilter, _locationFilter, _currentPage, PageSize);
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnFilterChanged(RequestStatus? value)
+    {
+        _statusFilter = value;
+        _currentPage = 1;
+        await ReloadAsync();
+    }
+
+    private async Task OnPriorityChanged(RequestPriority? value)
+    {
+        _priorityFilter = value;
+        _currentPage = 1;
+        await ReloadAsync();
+    }
+
+    private async Task OnLocationChanged(Guid? value)
+    {
+        _locationFilter = value;
+        _currentPage = 1;
+        await ReloadAsync();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await ReloadAsync();
+    }
+
+    private void OnRowClicked(TableRowClickEventArgs<RequestListItemDto> args)
+        => Nav.NavigateTo($"/requests/{args.Item!.Id}");
+
+    private static Color PriorityColor(RequestPriority p) => p switch
+    {
+        RequestPriority.Urgent => Color.Error,
+        RequestPriority.Normal => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static Color StatusColor(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft => Color.Default,
+        RequestStatus.Submitted => Color.Info,
+        RequestStatus.Approved => Color.Success,
+        RequestStatus.Rejected => Color.Error,
+        RequestStatus.Fulfilled => Color.Tertiary,
+        _ => Color.Default
+    };
+
+    private static Color AvailabilityColor(AvailabilityCheckStatus s) => s switch
+    {
+        AvailabilityCheckStatus.NotStarted => Color.Default,
+        AvailabilityCheckStatus.InProgress => Color.Warning,
+        AvailabilityCheckStatus.Completed => Color.Success,
+        AvailabilityCheckStatus.Failed => Color.Error,
+        _ => Color.Default
+    };
+
+    public void Dispose() => UserContext.Changed -= OnUserChanged;
+}

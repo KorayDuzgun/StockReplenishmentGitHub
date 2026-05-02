@@ -9,7 +9,7 @@ namespace StockReplenishment.Services;
 /// <summary>Single composition entry point for everything the Services + Data layers own.</summary>
 public static class DependencyInjection
 {
-    public static IServiceCollection AddStockReplenishment(
+    public static IServiceCollection AddStockReplenishmentRepositories(
         this IServiceCollection services,
         string inMemoryDatabaseName = "StockReplenishment")
     {

@@ -1,0 +1,315 @@
+@page "/requests/{Id:guid}"
+@inject ApiClient Api
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject UserContext UserContext
+@implements IAsyncDisposable
+
+<PageTitle>Request Detail</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else if (_request is null)
+{
+    <MudAlert Severity="Severity.Error">@(_error ?? "Request not found.")</MudAlert>
+}
+else
+{
+    <MudStack Row AlignItems="AlignItems.Center" Class="mb-4">
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/"))">Back</MudButton>
+        <MudText Typo="Typo.h4">@_request.RequestNumber</MudText>
+        <MudChip T="string" Color="@StatusColor(_request.Status)">@_request.Status</MudChip>
+        <MudChip T="string" Color="@PriorityColor(_request.Priority)">@_request.Priority</MudChip>
+        <MudChip T="string" Color="@AvailabilityColor(_request.AvailabilityCheckStatus)">
+            @($"Availability: {_request.AvailabilityCheckStatus}")
+        </MudChip>
+    </MudStack>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4" Outlined Elevation="0">
+                <MudText Typo="Typo.h6" Class="mb-2">Items</MudText>
+                <MudTable T="ReplenishmentRequestItemDto" Items="_request.Items" Dense Hover>
+                    <HeaderContent>
+                        <MudTh>Article</MudTh>
+                        <MudTh>Description</MudTh>
+                        <MudTh>Unit</MudTh>
+                        <MudTh Style="text-align:right">Requested</MudTh>
+                        <MudTh Style="text-align:right">Available</MudTh>
+                        <MudTh Style="text-align:right">Fulfilled</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.ArticleNumber</MudTd>
+                        <MudTd>@context.Description</MudTd>
+                        <MudTd>@context.Unit</MudTd>
+                        <MudTd Style="text-align:right">@context.RequestedQuantity</MudTd>
+                        <MudTd Style="text-align:right">
+                            @(context.AvailableQuantity?.ToString() ?? "—")
+                        </MudTd>
+                        <MudTd Style="text-align:right">
+                            @(context.FulfilledQuantity?.ToString() ?? "—")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4 mb-4" Outlined Elevation="0">
+                <MudText Typo="Typo.h6" Class="mb-2">Metadata</MudText>
+                <MudList T="string" Dense>
+                    <MudListItem T="string">Location: <b>@_request.StockLocationCode</b> — @_request.StockLocationName</MudListItem>
+                    <MudListItem T="string">Created by: <b>@_request.CreatedBy</b> at @_request.CreatedAt.LocalDateTime.ToString("g")</MudListItem>
+                    @if (_request.SubmittedAt is not null)
+                    {
+                        <MudListItem T="string">Submitted: @_request.SubmittedAt.Value.LocalDateTime.ToString("g")</MudListItem>
+                    }
+                    @if (_request.ApprovedAt is not null)
+                    {
+                        <MudListItem T="string">Approved by <b>@_request.ReviewedBy</b> at @_request.ApprovedAt.Value.LocalDateTime.ToString("g")</MudListItem>
+                    }
+                    @if (_request.RejectedAt is not null)
+                    {
+                        <MudListItem T="string">Rejected by <b>@_request.ReviewedBy</b> at @_request.RejectedAt.Value.LocalDateTime.ToString("g")</MudListItem>
+                        <MudListItem T="string">Reason: <i>@_request.RejectionReason</i></MudListItem>
+                    }
+                    @if (_request.FulfilledAt is not null)
+                    {
+                        <MudListItem T="string">Fulfilled at @_request.FulfilledAt.Value.LocalDateTime.ToString("g")</MudListItem>
+                    }
+                </MudList>
+            </MudPaper>
+
+            <MudPaper Class="pa-4" Outlined Elevation="0">
+                <MudText Typo="Typo.h6" Class="mb-2">Actions</MudText>
+                <MudStack>
+                    @if (_request.Status == RequestStatus.Draft && UserContext.Current.Role == UserRole.Worker)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Send"
+                                   Disabled="_busy"
+                                   OnClick="SubmitAsync">Submit for Review</MudButton>
+                    }
+                    @if (_request.Status == RequestStatus.Submitted && UserContext.Current.Role == UserRole.Reviewer)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                   StartIcon="@Icons.Material.Filled.Check"
+                                   Disabled="_busy"
+                                   OnClick="ApproveAsync">Approve</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Close"
+                                   Disabled="_busy"
+                                   OnClick="RejectAsync">Reject</MudButton>
+                    }
+                    @if (_request.Status == RequestStatus.Approved && UserContext.Current.Role == UserRole.Reviewer)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Tertiary"
+                                   StartIcon="@Icons.Material.Filled.Inventory2"
+                                   Disabled="_busy"
+                                   OnClick="FulfillAsync">Fulfill</MudButton>
+                    }
+                    @if (NoActionsAvailable())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Tertiary">No actions available for the current user/state.</MudText>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ReplenishmentRequestDto? _request;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    private CancellationTokenSource? _pollCts;
+    private Task? _pollTask;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await StopPollingAsync();
+        await LoadAsync();
+        StartPollingIfNeeded();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _request = await Api.GetRequestAsync(Id);
+            _error = null;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _request = null;
+        }
+    }
+
+    private void StartPollingIfNeeded()
+    {
+        // Only poll while the asynchronous availability check is actually running — saves both
+        // server resources and network traffic for terminal states.
+        if (_request?.AvailabilityCheckStatus != AvailabilityCheckStatus.InProgress) return;
+
+        _pollCts = new CancellationTokenSource();
+        _pollTask = PollLoopAsync(_pollCts.Token);
+    }
+
+    private async Task PollLoopAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                var refreshed = await Api.GetAvailabilityAsync(Id, token);
+                if (refreshed.AvailabilityCheckStatus == AvailabilityCheckStatus.InProgress) continue;
+
+                // The polling endpoint returns the full request DTO, so we can swap it in directly
+                // and avoid a second round-trip just to refresh the items grid.
+                await InvokeAsync(() =>
+                {
+                    _request = refreshed;
+                    StateHasChanged();
+                });
+                break;
+            }
+        }
+        catch (OperationCanceledException) { /* expected on dispose / re-navigation */ }
+        catch (Exception ex)
+        {
+            await InvokeAsync(() =>
+            {
+                _error = ex.Message;
+                StateHasChanged();
+            });
+        }
+    }
+
+    private async Task StopPollingAsync()
+    {
+        if (_pollCts is null) return;
+        _pollCts.Cancel();
+        try { if (_pollTask is not null) await _pollTask; } catch { /* swallowed */ }
+        _pollCts.Dispose();
+        _pollCts = null;
+        _pollTask = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        await ExecuteAsync(async () =>
+        {
+            await Api.SubmitRequestAsync(Id);
+            Snackbar.Add("Request submitted. Availability check is running…", Severity.Info);
+            await LoadAsync();
+            StartPollingIfNeeded();
+        });
+    }
+
+    private async Task ApproveAsync()
+    {
+        await ExecuteAsync(async () =>
+        {
+            _request = await Api.ApproveAsync(Id);
+            Snackbar.Add("Request approved.", Severity.Success);
+        });
+    }
+
+    private async Task RejectAsync()
+    {
+        var parameters = new DialogParameters<RejectDialog>
+        {
+            { x => x.RequestNumber, _request!.RequestNumber }
+        };
+        var dialog = await DialogService.ShowAsync<RejectDialog>("Reject Request", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        var reason = (string)result.Data!;
+        await ExecuteAsync(async () =>
+        {
+            _request = await Api.RejectAsync(Id, new RejectRequestDto { Reason = reason });
+            Snackbar.Add("Request rejected.", Severity.Warning);
+        });
+    }
+
+    private async Task FulfillAsync()
+    {
+        var parameters = new DialogParameters<FulfillDialog>
+        {
+            { x => x.Items, _request!.Items.ToList() }
+        };
+        var dialog = await DialogService.ShowAsync<FulfillDialog>("Fulfill Request", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        var fulfillment = (FulfillRequestDto)result.Data!;
+        await ExecuteAsync(async () =>
+        {
+            _request = await Api.FulfillAsync(Id, fulfillment);
+            Snackbar.Add("Request fulfilled.", Severity.Success);
+        });
+    }
+
+    private async Task ExecuteAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try { await action(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _busy = false; StateHasChanged(); }
+    }
+
+    private bool NoActionsAvailable()
+    {
+        if (_request is null) return true;
+        return !(
+            (_request.Status == RequestStatus.Draft && UserContext.Current.Role == UserRole.Worker) ||
+            (_request.Status == RequestStatus.Submitted && UserContext.Current.Role == UserRole.Reviewer) ||
+            (_request.Status == RequestStatus.Approved && UserContext.Current.Role == UserRole.Reviewer));
+    }
+
+    private static Color PriorityColor(RequestPriority p) => p switch
+    {
+        RequestPriority.Urgent => Color.Error,
+        RequestPriority.Normal => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static Color StatusColor(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft => Color.Default,
+        RequestStatus.Submitted => Color.Info,
+        RequestStatus.Approved => Color.Success,
+        RequestStatus.Rejected => Color.Error,
+        RequestStatus.Fulfilled => Color.Tertiary,
+        _ => Color.Default
+    };
+
+    private static Color AvailabilityColor(AvailabilityCheckStatus s) => s switch
+    {
+        AvailabilityCheckStatus.NotStarted => Color.Default,
+        AvailabilityCheckStatus.InProgress => Color.Warning,
+        AvailabilityCheckStatus.Completed => Color.Success,
+        AvailabilityCheckStatus.Failed => Color.Error,
+        _ => Color.Default
+    };
+
+    public async ValueTask DisposeAsync() => await StopPollingAsync();
+}
