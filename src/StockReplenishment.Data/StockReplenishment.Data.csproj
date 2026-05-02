@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StockReplenishment.Contracts\StockReplenishment.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Repository impls stay internal to the layer; Services composes them via DI. -->
+    <InternalsVisibleTo Include="StockReplenishment.Services" />
+    <InternalsVisibleTo Include="StockReplenishment.Tests" />
+  </ItemGroup>
+
+</Project>
