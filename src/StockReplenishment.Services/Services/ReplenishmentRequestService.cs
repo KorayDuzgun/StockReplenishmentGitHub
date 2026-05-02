@@ -143,6 +143,7 @@ internal sealed class ReplenishmentRequestService : IReplenishmentRequestService
         EnsureStatus(request, RequestStatus.Submitted, "reject");
 
         request.Status = RequestStatus.Rejected;
+        request.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
         request.ReviewedBy = _currentUser.UserName;
         request.RejectionReason = input.Reason.Trim();
         request.RejectedAt = DateTimeOffset.UtcNow;
