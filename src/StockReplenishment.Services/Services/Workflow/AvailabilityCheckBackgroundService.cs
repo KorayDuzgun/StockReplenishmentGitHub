@@ -68,7 +68,7 @@ internal sealed class AvailabilityCheckBackgroundService : BackgroundService
 
         try
         {
-            request.AvailabilityCheckStatus = AvailabilityCheckStatus.InProgress;
+            request.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.InProgress;
             await db.SaveChangesAsync(stoppingToken);
 
             var result = await checker.CheckAsync(request, stoppingToken);
@@ -78,7 +78,7 @@ internal sealed class AvailabilityCheckBackgroundService : BackgroundService
                 if (result.TryGetValue(item.Id, out var qty))
                     item.AvailableQuantity = qty;
             }
-            request.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+            request.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
             await db.SaveChangesAsync(stoppingToken);
 
             _logger.LogInformation("Availability check completed for request {RequestId}.", requestId);
@@ -94,7 +94,7 @@ internal sealed class AvailabilityCheckBackgroundService : BackgroundService
 
             try
             {
-                request.AvailabilityCheckStatus = AvailabilityCheckStatus.Failed;
+                request.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Failed;
                 await db.SaveChangesAsync(CancellationToken.None);
             }
             catch (Exception persistEx)

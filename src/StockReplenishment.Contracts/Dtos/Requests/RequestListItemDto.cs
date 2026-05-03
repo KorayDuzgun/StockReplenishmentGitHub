@@ -12,7 +12,7 @@ public sealed record RequestListItemDto(
     string StockLocationCode,
     RequestPriority Priority,
     RequestStatus Status,
-    AvailabilityCheckStatus AvailabilityCheckStatus,
+    StockAvailabilityCheckStatus StockAvailabilityCheckStatus,
     string CreatedBy,
     DateTimeOffset CreatedAt,
     int ItemCount);

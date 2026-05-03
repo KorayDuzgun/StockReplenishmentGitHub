@@ -54,7 +54,7 @@ internal sealed class ReplenishmentRequestService : IReplenishmentRequestService
             StockLocationId = input.StockLocationId,
             Priority = input.Priority,
             Status = RequestStatus.Draft,
-            AvailabilityCheckStatus = AvailabilityCheckStatus.NotStarted,
+            StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.NotStarted,
             CreatedBy = _currentUser.UserName,
             CreatedAt = DateTimeOffset.UtcNow,
             Items = input.Items
@@ -143,7 +143,7 @@ internal sealed class ReplenishmentRequestService : IReplenishmentRequestService
         EnsureStatus(request, RequestStatus.Submitted, "reject");
 
         request.Status = RequestStatus.Rejected;
-        request.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+        request.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
         request.ReviewedBy = _currentUser.UserName;
         request.RejectionReason = input.Reason.Trim();
         request.RejectedAt = DateTimeOffset.UtcNow;

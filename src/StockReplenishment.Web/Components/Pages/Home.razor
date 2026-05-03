@@ -30,7 +30,7 @@
             <MudSelect T="Guid?" Value="_locationFilter" ValueChanged="OnLocationChanged" Label="Location" Clearable Dense Variant="Variant.Outlined">
                 @foreach (var location in _locations)
                 {
-                    <MudSelectItem T="Guid?" Value="@location.Id">@location.Code � @location.Name</MudSelectItem>
+                    <MudSelectItem T="Guid?" Value="@location.Id">@location.Code @location.Name</MudSelectItem>
                 }
             </MudSelect>
         </MudItem>
@@ -65,7 +65,7 @@ else
             <MudTh>Location</MudTh>
             <MudTh>Priority</MudTh>
             <MudTh>Status</MudTh>
-            <MudTh>Availability</MudTh>
+            <MudTh>Stock Control</MudTh>
             <MudTh>Items</MudTh>
             <MudTh>Created By</MudTh>
             <MudTh>Created At</MudTh>
@@ -80,7 +80,7 @@ else
                 <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
             </MudTd>
             <MudTd>
-                <MudChip T="string" Size="Size.Small" Color="@AvailabilityColor(context.AvailabilityCheckStatus)">@context.AvailabilityCheckStatus</MudChip>
+                <MudChip T="string" Size="Size.Small" Color="@AvailabilityColor(context.StockAvailabilityCheckStatus)">@context.StockAvailabilityCheckStatus</MudChip>
             </MudTd>
             <MudTd>@context.ItemCount</MudTd>
             <MudTd>@context.CreatedBy</MudTd>
@@ -190,12 +190,12 @@ else
         _ => Color.Default
     };
 
-    private static Color AvailabilityColor(AvailabilityCheckStatus s) => s switch
+    private static Color AvailabilityColor(StockAvailabilityCheckStatus s) => s switch
     {
-        AvailabilityCheckStatus.NotStarted => Color.Default,
-        AvailabilityCheckStatus.InProgress => Color.Warning,
-        AvailabilityCheckStatus.Completed => Color.Success,
-        AvailabilityCheckStatus.Failed => Color.Error,
+        StockAvailabilityCheckStatus.NotStarted => Color.Default,
+        StockAvailabilityCheckStatus.InProgress => Color.Warning,
+        StockAvailabilityCheckStatus.Completed => Color.Success,
+        StockAvailabilityCheckStatus.Failed => Color.Error,
         _ => Color.Default
     };
 

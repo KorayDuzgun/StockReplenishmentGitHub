@@ -5,7 +5,7 @@ namespace StockReplenishment.Contracts.Enums;
 /// Tracked independently from <see cref="RequestStatus"/> so that the slow side-effect
 /// does not pollute the workflow state machine.
 /// </summary>
-public enum AvailabilityCheckStatus
+public enum StockAvailabilityCheckStatus
 {
     NotStarted = 0,
     InProgress = 1,

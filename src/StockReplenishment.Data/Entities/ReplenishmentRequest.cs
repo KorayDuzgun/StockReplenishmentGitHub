@@ -18,7 +18,7 @@ public sealed class ReplenishmentRequest
 
     public RequestPriority Priority { get; set; }
     public RequestStatus Status { get; set; }
-    public AvailabilityCheckStatus AvailabilityCheckStatus { get; set; }
+    public StockAvailabilityCheckStatus StockAvailabilityCheckStatus { get; set; }
 
     public string CreatedBy { get; set; } = default!;
     public string? ReviewedBy { get; set; }

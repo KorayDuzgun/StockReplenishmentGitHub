@@ -11,7 +11,7 @@ public sealed record ReplenishmentRequestDto(
     string StockLocationName,
     RequestPriority Priority,
     RequestStatus Status,
-    AvailabilityCheckStatus AvailabilityCheckStatus,
+    StockAvailabilityCheckStatus StockAvailabilityCheckStatus,
     string CreatedBy,
     string? ReviewedBy,
     DateTimeOffset CreatedAt,

@@ -45,7 +45,7 @@ public sealed class AppDbContext : DbContext
             // Persist enums as strings so the in-memory store stays human-readable when inspected.
             b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(r => r.Priority).HasConversion<string>().HasMaxLength(10);
-            b.Property(r => r.AvailabilityCheckStatus).HasConversion<string>().HasMaxLength(20);
+            b.Property(r => r.StockAvailabilityCheckStatus).HasConversion<string>().HasMaxLength(20);
 
             b.HasOne(r => r.StockLocation)
              .WithMany()

@@ -31,7 +31,7 @@ internal sealed class ReplenishmentRequestRepository : IReplenishmentRequestRepo
                 r.StockLocation.Name,
                 r.Priority,
                 r.Status,
-                r.AvailabilityCheckStatus,
+                r.StockAvailabilityCheckStatus,
                 r.CreatedBy,
                 r.ReviewedBy,
                 r.CreatedAt,
@@ -72,7 +72,7 @@ internal sealed class ReplenishmentRequestRepository : IReplenishmentRequestRepo
                 r.StockLocation!.Code,
                 r.Priority,
                 r.Status,
-                r.AvailabilityCheckStatus,
+                r.StockAvailabilityCheckStatus,
                 r.CreatedBy,
                 r.CreatedAt,
                 r.Items.Count))

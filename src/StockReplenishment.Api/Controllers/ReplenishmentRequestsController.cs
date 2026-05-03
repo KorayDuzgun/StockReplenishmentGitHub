@@ -31,7 +31,7 @@ public sealed class ReplenishmentRequestsController : ControllerBase
 
     /// <summary>
     /// Polling endpoint for the asynchronous availability check. Returns the same DTO as
-    /// <c>GET /api/requests/{id}</c>; clients read <c>availabilityCheckStatus</c> and the per-item
+    /// <c>GET /api/requests/{id}</c>; clients read <c>StockAvailabilityCheckStatus</c> and the per-item
     /// <c>availableQuantity</c> values to decide when to stop polling.
     /// </summary>
     [HttpGet("{id:guid}/availability")]

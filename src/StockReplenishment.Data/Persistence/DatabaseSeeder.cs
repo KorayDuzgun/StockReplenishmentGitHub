@@ -62,20 +62,12 @@ public static class DatabaseSeeder
         list.Add(Build(locations[0], RequestPriority.Normal, "john", now.AddMinutes(-30),
             (articles[0], 50), (articles[2], 50)));
 
-        // Submitted, availability check still in progress (great for demoing polling)
-        var submittedInProgress = Build(locations[1], RequestPriority.Urgent, "anna", now.AddMinutes(-20),
-            (articles[1], 30), (articles[3], 30), (articles[4], 60));
-        submittedInProgress.Status = RequestStatus.Submitted;
-        submittedInProgress.SubmittedAt = now.AddMinutes(-19);
-        submittedInProgress.AvailabilityCheckStatus = AvailabilityCheckStatus.InProgress;
-        list.Add(submittedInProgress);
-
         // Submitted, availability completed (reviewer can act)
         var submittedReady = Build(locations[2], RequestPriority.Normal, "john", now.AddMinutes(-60),
             (articles[5], 10), (articles[6], 25));
         submittedReady.Status = RequestStatus.Submitted;
         submittedReady.SubmittedAt = now.AddMinutes(-59);
-        submittedReady.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+        submittedReady.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
         foreach (var i in submittedReady.Items) i.AvailableQuantity = i.RequestedQuantity;
         list.Add(submittedReady);
 
@@ -86,7 +78,7 @@ public static class DatabaseSeeder
         approved.SubmittedAt = now.AddHours(-3).AddMinutes(1);
         approved.ApprovedAt = now.AddHours(-2);
         approved.ReviewedBy = "jason";
-        approved.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+        approved.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
         foreach (var i in approved.Items) i.AvailableQuantity = i.RequestedQuantity;
         list.Add(approved);
 
@@ -98,7 +90,7 @@ public static class DatabaseSeeder
         rejected.RejectedAt = now.AddHours(-4);
         rejected.ReviewedBy = "jason";
         rejected.RejectionReason = "Insufficient justification for urgent priority.";
-        rejected.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+        rejected.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
         foreach (var i in rejected.Items) i.AvailableQuantity = i.RequestedQuantity;
         list.Add(rejected);
 
@@ -110,7 +102,7 @@ public static class DatabaseSeeder
         fulfilled.ApprovedAt = now.AddDays(-1).AddHours(1);
         fulfilled.FulfilledAt = now.AddDays(-1).AddHours(2);
         fulfilled.ReviewedBy = "jason";
-        fulfilled.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+        fulfilled.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
         foreach (var i in fulfilled.Items)
         {
             i.AvailableQuantity = i.RequestedQuantity;
@@ -126,7 +118,7 @@ public static class DatabaseSeeder
             (articles[0], 25), (articles[2], 25));
         secondSubmitted.Status = RequestStatus.Submitted;
         secondSubmitted.SubmittedAt = now.AddMinutes(-89);
-        secondSubmitted.AvailabilityCheckStatus = AvailabilityCheckStatus.Completed;
+        secondSubmitted.StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.Completed;
         foreach (var i in secondSubmitted.Items) i.AvailableQuantity = i.RequestedQuantity;
         list.Add(secondSubmitted);
 
@@ -150,7 +142,7 @@ public static class DatabaseSeeder
             StockLocationId = location.Id,
             Priority = priority,
             Status = RequestStatus.Draft,
-            AvailabilityCheckStatus = AvailabilityCheckStatus.NotStarted,
+            StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.NotStarted,
             CreatedBy = createdBy,
             CreatedAt = createdAt,
             Items = items.Select(i => new ReplenishmentRequestItem

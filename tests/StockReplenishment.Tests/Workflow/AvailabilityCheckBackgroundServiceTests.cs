@@ -37,7 +37,7 @@ public class AvailabilityCheckBackgroundServiceTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var saved = await db.Requests.Include(r => r.Items).SingleAsync(r => r.Id == fixture.RequestId);
 
-        Assert.That(saved.AvailabilityCheckStatus, Is.EqualTo(AvailabilityCheckStatus.Completed));
+        Assert.That(saved.StockAvailabilityCheckStatus, Is.EqualTo(StockAvailabilityCheckStatus.Completed));
         Assert.That(saved.Items.All(i => i.AvailableQuantity == i.RequestedQuantity), Is.True);
     }
 
@@ -55,7 +55,7 @@ public class AvailabilityCheckBackgroundServiceTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var saved = await db.Requests.SingleAsync(r => r.Id == fixture.RequestId);
 
-        Assert.That(saved.AvailabilityCheckStatus, Is.EqualTo(AvailabilityCheckStatus.Failed));
+        Assert.That(saved.StockAvailabilityCheckStatus, Is.EqualTo(StockAvailabilityCheckStatus.Failed));
     }
 
     private static WorkerFixture BuildFixture()
@@ -86,7 +86,7 @@ public class AvailabilityCheckBackgroundServiceTests
             StockLocationId = locationId,
             Priority = RequestPriority.Normal,
             Status = RequestStatus.Submitted,
-            AvailabilityCheckStatus = AvailabilityCheckStatus.NotStarted,
+            StockAvailabilityCheckStatus = StockAvailabilityCheckStatus.NotStarted,
             CreatedBy = "john",
             CreatedAt = new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
             SubmittedAt = new DateTimeOffset(2026, 5, 1, 8, 1, 0, TimeSpan.Zero),
@@ -124,8 +124,8 @@ public class AvailabilityCheckBackgroundServiceTests
             while (!cts.IsCancellationRequested)
             {
                 var current = await db.Requests.AsNoTracking().SingleAsync(r => r.Id == fixture.RequestId);
-                if (current.AvailabilityCheckStatus is AvailabilityCheckStatus.Completed
-                    or AvailabilityCheckStatus.Failed)
+                if (current.StockAvailabilityCheckStatus is StockAvailabilityCheckStatus.Completed
+                    or StockAvailabilityCheckStatus.Failed)
                     break;
                 await Task.Delay(50, cts.Token);
             }

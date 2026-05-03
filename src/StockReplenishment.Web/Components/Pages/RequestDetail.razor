@@ -23,8 +23,8 @@ else
         <MudText Typo="Typo.h4">@_request.RequestNumber</MudText>
         <MudChip T="string" Color="@StatusColor(_request.Status)">@_request.Status</MudChip>
         <MudChip T="string" Color="@PriorityColor(_request.Priority)">@_request.Priority</MudChip>
-        <MudChip T="string" Color="@AvailabilityColor(_request.AvailabilityCheckStatus)">
-            @($"Availability: {_request.AvailabilityCheckStatus}")
+        <MudChip T="string" Color="@AvailabilityColor(_request.StockAvailabilityCheckStatus)">
+            @($"Availability: {_request.StockAvailabilityCheckStatus}")
         </MudChip>
     </MudStack>
 
@@ -164,7 +164,7 @@ else
     {
         // Only poll while the asynchronous availability check is actually running — saves both
         // server resources and network traffic for terminal states.
-        if (_request?.AvailabilityCheckStatus != AvailabilityCheckStatus.InProgress) return;
+        if (_request?.StockAvailabilityCheckStatus != StockAvailabilityCheckStatus.InProgress) return;
 
         _pollCts = new CancellationTokenSource();
         _pollTask = PollLoopAsync(_pollCts.Token);
@@ -178,7 +178,7 @@ else
             while (await timer.WaitForNextTickAsync(token))
             {
                 var refreshed = await Api.GetAvailabilityAsync(Id, token);
-                if (refreshed.AvailabilityCheckStatus == AvailabilityCheckStatus.InProgress) continue;
+                if (refreshed.StockAvailabilityCheckStatus == StockAvailabilityCheckStatus.InProgress) continue;
 
                 // The polling endpoint returns the full request DTO, so we can swap it in directly
                 // and avoid a second round-trip just to refresh the items grid.
@@ -302,12 +302,12 @@ else
         _ => Color.Default
     };
 
-    private static Color AvailabilityColor(AvailabilityCheckStatus s) => s switch
+    private static Color AvailabilityColor(StockAvailabilityCheckStatus s) => s switch
     {
-        AvailabilityCheckStatus.NotStarted => Color.Default,
-        AvailabilityCheckStatus.InProgress => Color.Warning,
-        AvailabilityCheckStatus.Completed => Color.Success,
-        AvailabilityCheckStatus.Failed => Color.Error,
+        StockAvailabilityCheckStatus.NotStarted => Color.Default,
+        StockAvailabilityCheckStatus.InProgress => Color.Warning,
+        StockAvailabilityCheckStatus.Completed => Color.Success,
+        StockAvailabilityCheckStatus.Failed => Color.Error,
         _ => Color.Default
     };
 
